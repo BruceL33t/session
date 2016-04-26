@@ -8,10 +8,11 @@ pub mod session;
 pub mod hashsession;
 
 /// This `Trait` defines a session storage struct. It must be implemented on any store passed to `Sessions`.
-pub trait SessionStore<K, V>: Clone + Send + Sync {
+pub trait SessionStore<K, V>: Sync + Send {
     #[doc(hidden)]
-    fn select_session(&self, key: K) -> Session<K, V> {
-        Session::new(key, Box::new(self.clone()))
+    fn select_session(&self, key: K) -> Session<K> where Self: Clone + 'static {
+        let b = Box::new(self.clone());
+        Session::new(key, b)
     }
     /// Set the value of the session belonging to `key`, replacing any previously set value.
     fn insert(&self, key: &K, value: V);
