@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use core::cmp::Eq;
 use super::SessionStore;
-use std::boxed::Box;
 
 type Store<K, V> = RwLock<HashMap<K, RwLock<V>>>;
 
@@ -63,34 +62,33 @@ impl<K: Hash + Eq + Send + Sync + Clone, V: Send + Sync + Clone> SessionStore<K,
         }
     }
     fn swap(&self, key: &K, value: V) -> Option<V> {
-        // match self.store.read().unwrap().get(key) {
-        //     // Instead of using swap, which requires a write lock on the HashMap,
-        //     // only take the write locks when the key does not yet exist
-        //     Some(lock) => {
-        //         let old_v = lock.read().unwrap().clone();
-        //         *lock.write() = value;
-        //         return Some(old_v)
-        //     },
-        //     None => ()
-        // }
+        match self.store.read().unwrap().get(key) {
+            // Instead of using swap, which requires a write lock on the HashMap,
+            // only take the write locks when the key does not yet exist
+            Some(lock) => {
+                let old_v = lock.read().unwrap().clone();
+                *lock.write().unwrap() = value;
+                return Some(old_v)
+            },
+            None => ()
+        }
         self.insert(key, value);
         None
     }
     fn upsert(&self, key: &K, value: V, mutator: fn(&mut V)) -> V {
-        // match self.store.read().unwrap().get(key) {
-        //     Some(lock) => {
-        //         let old_v = &mut *lock.write();
-        //         mutator(old_v);
-        //         return old_v.clone()
-        //     },
-        //     None => ()
-        // }
+        match self.store.read().unwrap().get(key) {
+            Some(lock) => {
+                let old_v = &mut *lock.write().unwrap();
+                mutator(old_v);
+                return old_v.clone()
+            },
+            None => ()
+        }
         self.insert(key, value.clone());
         value
     }
     fn remove(&self, key: &K) -> bool {
-        //self.store.write().remove(key)
-        false
+        self.store.write().unwrap().remove(key).is_some()
     }
 }
 
